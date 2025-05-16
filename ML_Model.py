@@ -3,6 +3,33 @@ from sklearn.model_selection import RandomizedSearchCV
 from sklearn.metrics import classification_report, roc_auc_score, confusion_matrix, ConfusionMatrixDisplay
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, roc_auc_score
+import seaborn as sns
+import matplotlib.pyplot as plt
+from imblearn.over_sampling import SMOTE
+
+# Step 1: Drop non-numeric columns and handle missing values
+df_numeric = df.select_dtypes(include=['number']).copy()
+# Drop rows with missing values
+df_numeric = df_numeric.dropna()
+
+# Step 2: Define features and target
+X = df_numeric.drop('caused_power_outage', axis=1)
+y = df_numeric['caused_power_outage']
+
+# Step 3: Stratified Train-Test Split (to ensure equal distribution of 0s and 1s in test set)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y  # Stratified to ensure equal distribution of classes
+)
+
+# Step 4: Standardize features
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)  # Scale test set using the same scaler as train set
 
 # Parameter space
 param_dist = {
