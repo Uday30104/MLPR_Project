@@ -1,10 +1,12 @@
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import RandomizedSearchCV
-from sklearn.metrics import classification_report, roc_auc_score, confusion_matrix, ConfusionMatrixDisplay
+from sklearn.model_selection import ParameterSampler
+from sklearn.model_selection import cross_val_score
+from sklearn.metrics import roc_auc_score
+import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+from tqdm import tqdm
 
-# Parameter space
+# Search space
 param_dist = {
     'n_estimators': np.arange(100, 400, 50),
     'max_depth': [None, 10, 20, 30],
@@ -14,34 +16,25 @@ param_dist = {
     'bootstrap': [True, False]
 }
 
-# Classifier
-rf = RandomForestClassifier(random_state=42, class_weight='balanced')
+# Generate sample of 30 random parameter combinations
+param_list = list(ParameterSampler(param_dist, n_iter=30, random_state=42))
 
-# Randomized search CV
-random_search = RandomizedSearchCV(
-    estimator=rf,
-    param_distributions=param_dist,
-    n_iter=30,
-    scoring='roc_auc',
-    cv=3,
-    verbose=2,
-    n_jobs=-1,
-    random_state=42
-)
+results = []
+print("🔄 Starting manual hyperparameter evaluation...\n")
 
-# Fit on your scaled, numeric dataset (X_train, y_train)
-random_search.fit(X_train, y_train)
+for i, params in enumerate(tqdm(param_list)):
+    model = RandomForestClassifier(random_state=42, class_weight='balanced', **params)
+    scores = cross_val_score(model, X_train, y_train, scoring='roc_auc', cv=3, n_jobs=-1)
+    mean_score = scores.mean()
 
-# Evaluate
-best_model = random_search.best_estimator_
-y_pred = best_model.predict(X_test)
-y_proba = best_model.predict_proba(X_test)[:, 1]
+    print(f"▶️ Trial {i+1:02d} | AUC: {mean_score:.5f} | Params: {params}")
+    results.append({'params': params, 'mean_auc': mean_score})
 
-print("Classification Report:\n", classification_report(y_test, y_pred))
-print("AUC-ROC Score:", roc_auc_score(y_test, y_proba))
+# Convert results to DataFrame and sort
+results_df = pd.DataFrame(results).sort_values(by='mean_auc', ascending=False)
+print("\n🏁 Best Result:")
+print(results_df.iloc[0])
 
-# Confusion matrix
-cm = confusion_matrix(y_test, y_pred)
-disp = ConfusionMatrixDisplay(confusion_matrix=cm)
-disp.plot(cmap="Blues")
-plt.show()
+# Save results
+results_df.to_csv("manual_hyperparameter_results.csv", index=False)
+print("\n📁 Results saved to: manual_hyperparameter_results.csv")
